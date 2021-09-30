@@ -25,12 +25,13 @@ code_xor[0] = word[0]
 code_xnor[0] = word[0]
 for n in range(1, 8):
     code_xor[n] = code_xor[n - 1] ^ word[n]
-    code_xnor[n] = ~(code_xor[n - 1] ^ word[n])
+    code_xnor[n] = ~(code_xnor[n - 1] ^ word[n])
 ```
 
 We can treat these two encodings as a black box for now, but assume that they probably have a
-different number of transitions. We're going to indicate which encoding we chose in the ninth
-bit `code[8]` where `1` is XOR and `0` is XNOR.
+different number of transitions. As the goal was minimizing transitions we want to pick the
+encoding with fewer `01`/`10` patterns. We're going to indicate which encoding we chose in the ninth
+bit `code[8]` (`1` is XOR and `0` is XNOR).
 
 ```python
 def count_transitions(bits):
@@ -47,10 +48,10 @@ code[0:8] = code_xnor if use_xnor else code_xor
 code[8] = 0 if use_xnor else 1
 ```
 
-We want to use the other control bit to indicate if we should invert `code[0:8]`. For electrical
+We use the other control bit to indicate if we should invert `code[0:8]`. For electrical
 purposes we want to send as many zeros as ones (or as close as possible) to keep a zero *DC bias*.
 The encoder keeps a counter `dc_bias` that contains the difference of ones to zeros encoded, for
-example after sending `100100` the bias would be -2. By inverting the code word if necessary we
+example after sending `100100` the bias would be -2. By selectively inverting the code word we
 can reduce the bias (or at least *not* increase it). If either the accumulated or code word bias
 are zero it doesn't really matter which way we choose, so we use the inverse of `code[8]` to keep
 the control bits `code[8:10]` unbiased (either `01` or `10`).
@@ -66,23 +67,23 @@ def bit_bias(bits):
 # Count the bias and invert the data word if necessary
 code_bias = bit_bias(code[0:8])
 if dc_bias == 0 or code_bias == 0:
-    # No bias in `code[0:8]` encode control bits as either `01` or `10`
+    # No bias: Encode control bits as either `01` or `10`
     invert = not code[8]
 else:
-    # Invert `code[0:8]` if the bias has a different sign than `dc_bias`
+    # Invert `code[0:8]` if `code_bias` has a different sign than `dc_bias`
     invert = (dc_bias < 0 and code_bias > 0) or (dc_bias > 0 and code_bias < 0)
 
-code[0:8] = ~code_word if invert else code_word
+code[0:8] = ~code[0:8] if invert else code[0:8]
 code[9] = invert
 
-# Accumulate DC bias for the final 10-bit code to be sent
+# Accumulate total DC bias for the final 10-bit code to be sent
 dc_bias += bit_bias(code)
 ```
 
 ## The dreaded flowchart
 
-That's really all there is to the encoding step of TMDS as described by the DVI specification text,
-however the spec includes a neat flowchart of the encoding algorithm that does not match the description.
+That's really all there is to encoding TMDS as described by the DVI specification text,
+however the spec includes a neat flowchart of the encoding algorithm that does not match the description...
 
 Instead of selecting between the XOR and XNOR encoding by which one has fewer transitions we select XNOR
 if the input data `word` has more than 4 transitions *or* it has exactly 4 transitions and `word[0] == 0`.
@@ -104,10 +105,11 @@ def xor(a, b):
 ```
 
 So now we can interpret the chain of XOR operators: Every `1` bit in the input corresponds to a transition
-in the output and every `0` bit keeps the output fixed! Furthermore as `not xor(a, b)` is equivalent to
-`xor(a, not b)` we can see that the XNOR case turns all zeroes into transitions. Now the decision is clear:
+in the output and every `0` bit keeps the output fixed! Furthermore `not xor(a, b)` is equivalent to
+`xor(a, not b)`, so the XNOR case turns all zeroes into transitions. Now the decision is clear:
 if there's less ones than zeros in the last 7 bits `code[1:8]` we want to use XOR, otherwise XNOR.
-This is equivalent to using XOR up to 3 bits set then switching to XNOR giving us a maximum of three transitions.
+With a total of 8 bits this means using XOR up to three `1` bits and switching to XNOR above that,
+giving us a maximum of three transitions for the 8-bit code word.
 
 ```python
 # word_bits = count_bits(word)
@@ -116,8 +118,8 @@ tail_bits = count_bits(word[1:8])
 use_xnor = tail_bits >= 4
 ```
 
-Now this is not exactly the same expression as on the flowchart, but it's close enough that we can show
-that it's equivalent by enumerating all the cases, if this doesn't feel correct feel free to expand the section below.
+Now this is not exactly the same expression as on the flowchart, but it's close enough that I could
+enumerate all the tricky cases and convince myself.
 
 <details markdown="1">
 <summary>Case by case analysis</summary>
