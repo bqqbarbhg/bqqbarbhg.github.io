@@ -1,0 +1,8 @@
+title: "bqq blog?"
+lsi: false
+safe: true
+baseurl: ""
+url: "https://bqqbarbhg.github.io"
+github_username: bqqbarbhg
+markdown: kramdown
+highlighter: rouge
