@@ -132,3 +132,5 @@ otherwise `word_bits==4` but we don't match the case `(word_bits==4 and word[0]=
 If `tail_bits==4` we should always use XNOR. If `code[0]==0` then `word_bits==4` and we satisfy
 the `(word_bits==4 and word[0]==0)` case, otheriwse `word_bits==5 > 4` due to the extra bit.
 </details>
+
+[wk-diffsig]: https://en.wikipedia.org/wiki/Differential_signalling
